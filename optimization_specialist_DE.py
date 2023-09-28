@@ -8,29 +8,52 @@ import os
 # parameters
 dom_l = -1
 dom_u = 1
-npop = 100
-gens = 30
-mutation = 0.2
+npop = 1000
+gens = 50
+mutation = 0.5
 last_best = 0
 fim = 0
+CR = 0.2
+strategy = 'DE/best/1'
+# strategy = 'DE/current-to-best/1'
 
-experiment_name = 'optimization_test_DE_247'
+experiment_name = 'DE_3_gen_50_CR_0.2_mutation_0.5_pop_1000'
 
 def simulation(env, x):
     f, p, e, t = env.play(pcont=x)
     return f
 
 # DE-specific functions
-def mutation_operation(pop, best_idx, F):
-    idxs = list(range(npop))
-    idxs.remove(best_idx)
+def mutation_operation(pop, best_idx, F, current_idx):
 
-    # three random individuals
-    a, b, c = np.random.choice(idxs, 3, replace=False)
+    if strategy == 'DE/best/1':
+        idxs = list(range(npop))
+        idxs.remove(best_idx)
 
-    # Mutate
-    mutant = pop[a] + F * (pop[b] - pop[c])
-    mutant = np.clip(mutant, dom_l, dom_u)
+        # best individual
+        a = pop[best_idx]
+
+        # two random individuals
+        b, c = np.random.choice(idxs, 2, replace=False)
+
+        # Mutate
+        mutant = a + F * (pop[b] - pop[c])
+        mutant = np.clip(mutant, dom_l, dom_u)
+    
+    elif strategy == 'DE/current-to-best/1':
+        idxs = list(range(npop))
+        idxs.remove(current_idx)
+
+        # best individual
+        best = pop[best_idx]
+
+        # random individual
+        a = np.random.choice(idxs, 1)[0]
+
+        # Mutate
+        mutant = pop[current_idx] + F * (best - pop[current_idx]) + F * (pop[a] - pop[current_idx])
+        mutant = np.clip(mutant, dom_l, dom_u)
+
 
     return mutant
 
@@ -63,8 +86,8 @@ def main():
 
     # environment params
     env = Environment(experiment_name=experiment_name,
-                    enemies=[2,4,7],
-                    multiplemode="yes",
+                    enemies=[8],
+                    multiplemode="no",
                     playermode="ai",
                     player_controller=player_controller(n_hidden_neurons),
                     enemymode="static",
@@ -93,7 +116,7 @@ def main():
 
         for j in range(npop):
             mutant = mutation_operation(pop, best_idx, mutation)
-            trial = crossover_operation(pop[j], mutant, 0.7)
+            trial = crossover_operation(pop[j], mutant, CR=CR)
 
             trial_fitness = evaluate(env, [trial])[0]
 
